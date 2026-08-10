@@ -24,28 +24,21 @@
 # ═══════════════════════════════════════════════════════════════════
 
 
-# ---------- Stage 1: builder ----------
-FROM python:3.11-slim AS builder
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-
-# ---------- Stage 2: runtime ----------
+# Dùng base image Python
 FROM python:3.11-slim
-WORKDIR /app
 
-# Copy only the installed packages from builder
-COPY --from=builder /install /usr/local
-# Copy application code
-COPY app ./app
+# Tạo một thư mục làm việc chung bên trong container
+WORKDIR /code
 
-# Create a non‑root user
-RUN useradd --create-home --uid 10001 appuser
-USER appuser
+# Copy file requirements và cài đặt thư viện trước (để tối ưu cache)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Healthcheck (gọi endpoint /healthz)
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz').read()" || exit 1
+# Quan trọng nhất: Copy TOÀN BỘ code (gồm cả thư mục 'app' và 'utils') vào /code
+COPY . .
 
-# Run uvicorn, listen on 0.0.0.0 and respect PORT env (cloud platforms)
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Mở port cho Render
+EXPOSE 8000
+
+# Chạy Uvicorn từ thư mục gốc (/code)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
