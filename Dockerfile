@@ -24,21 +24,28 @@
 # ═══════════════════════════════════════════════════════════════════
 
 
-# Dùng base image Python
-FROM python:3.11-slim
-
-# Tạo một thư mục làm việc chung bên trong container
-WORKDIR /code
-
-# Copy file requirements và cài đặt thư viện trước (để tối ưu cache)
+# --- Stage 1: Build Dependencies ---
+FROM python:3.11-slim AS builder
+WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# Quan trọng nhất: Copy TOÀN BỘ code (gồm cả thư mục 'app' và 'utils') vào /code
-COPY . .
+# --- Stage 2: Production Runtime ---
+FROM python:3.11-slim
+WORKDIR /app
 
-# Mở port cho Render
-EXPOSE 8000
+# Copy packages & tạo non-root user
+COPY --from=builder /install /usr/local
+RUN useradd -m -u 10001 appuser
 
-# Chạy Uvicorn từ thư mục gốc (/code)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Copy source code (bao gồm cả app và utils)
+COPY --chown=appuser:appuser app ./app
+COPY --chown=appuser:appuser utils ./utils
+
+USER appuser
+
+# Healthcheck & Startup Command
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD python -c "import os, urllib.request; p=os.getenv('PORT','8000'); urllib.request.urlopen(f'http://127.0.0.1:{p}/healthz')" || exit 1
+
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
