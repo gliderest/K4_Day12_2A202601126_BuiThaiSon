@@ -19,9 +19,9 @@ jobs:
       REDIS_URL: "fake://"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4   # ← ghim phiên bản
+        uses: actions/checkout@v5   # ← ghim phiên bản
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Install dependencies
@@ -40,7 +40,7 @@ jobs:
     needs: test          # chờ test pass trước khi build
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       # - name: Log in to Docker Hub (optional – skip if not pushing)
@@ -71,10 +71,10 @@ jobs:
       # RENDER_SERVICE_HOOK_URL: ${{ secrets.RENDER_SERVICE_HOOK_URL }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Node (for Railway CLI) – nếu dùng Railway
         if: ${{ env.RAILWAY_TOKEN != '' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "20"
       - name: Install Railway CLI – nếu dùng Railway
