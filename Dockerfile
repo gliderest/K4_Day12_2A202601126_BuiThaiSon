@@ -23,14 +23,29 @@
 #            docker images day12-chat:prod     # xem dung lượng
 # ═══════════════════════════════════════════════════════════════════
 
-FROM python:3.11
 
+# ---------- Stage 1: builder ----------
+FROM python:3.11-slim AS builder
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ---------- Stage 2: runtime ----------
+FROM python:3.11-slim
 WORKDIR /app
 
-COPY . .
+# Copy only the installed packages from builder
+COPY --from=builder /install /usr/local
+# Copy application code
+COPY app ./app
 
-RUN pip install -r requirements.txt
+# Create a non‑root user
+RUN useradd --create-home --uid 10001 appuser
+USER appuser
 
-EXPOSE 8000
+# Healthcheck (gọi endpoint /healthz)
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz').read()" || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run uvicorn, listen on 0.0.0.0 and respect PORT env (cloud platforms)
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
